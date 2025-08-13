@@ -488,9 +488,6 @@
             const avgTotalSites = data.reduce((sum, d) => sum + (d.sitesTotal || 0), 0) / data.length;
             const siteAvailability = avgTotalSites ? (avgSites / avgTotalSites) * 100 : 0;
 
-            document.getElementById('avgDownload').textContent = avgDownload.toFixed(1);
-            document.getElementById('avgUpload').textContent = avgUpload.toFixed(1);
-            document.getElementById('avgPing').textContent = avgPing.toFixed(0);
             document.getElementById('totalTests').textContent = totalTests;
             document.getElementById('siteAvailability').textContent = siteAvailability.toFixed(1);
         }
