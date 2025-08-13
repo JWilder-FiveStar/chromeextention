@@ -4,7 +4,8 @@
 ## NOTE: RAW_TABLE was previously mis-set to 'raw'. Actual target table is 'pubsub_raw'.
 substitutions:
   _REGION: us-east5
-  _SERVICE: telemetry-processor
+  # Existing Cloud Run service name observed in environment is 'process'
+  _SERVICE: process
   _DATASET: telemetry
   _RAW_TABLE: pubsub_raw
 steps:

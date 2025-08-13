@@ -3,7 +3,8 @@
 ## Standardizes deployment & ensures consistent TOPIC env.
 substitutions:
   _REGION: us-east5
-  _SERVICE: telemetry-ingest
+  # Existing ingest service host pattern chromeextention-<projnum>.run.app implies service name 'chromeextention'
+  _SERVICE: chromeextention
   _TOPIC: telemetry-data
 steps:
   - name: gcr.io/cloud-builders/docker

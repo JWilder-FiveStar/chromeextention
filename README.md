@@ -33,6 +33,51 @@ Edit `config.js`:
 - `reachabilityUrls`: list of sites to probe.
 - `speedTest`: parameters and endpoints.
 
+### Continuous Deployment (Git → Cloud Run)
+
+The two backend services deploy automatically via Google Cloud Build triggers so you do NOT run local `gcloud run deploy` for normal changes:
+
+Service | Cloud Run name | Build config | Trigger include filter
+--------|----------------|--------------|-----------------------
+Processor | `process` | `cloudbuild-processor.yaml` | `backend/processor/**`
+Ingest | `chromeextention` | `cloudbuild-ingest.yaml` | `backend/ingest/**`
+
+Steps to set up (one‑time):
+1. In Google Cloud Console → Cloud Build → Triggers → Create Trigger.
+2. Select repository (GitHub connection) and branch (main).
+3. For Processor trigger:
+  - Event: Push to branch
+  - Include files filter: `backend/processor/**,cloudbuild-processor.yaml`
+  - Build config: Existing YAML → path `cloudbuild-processor.yaml`
+4. For Ingest trigger:
+  - Event: Push to branch
+  - Include files filter: `backend/ingest/**,cloudbuild-ingest.yaml`
+  - Build config path: `cloudbuild-ingest.yaml`
+5. Add required secrets:
+  - Processor: Secret Manager secret `telemetry-bucket` mapped to env var `BUCKET`.
+  - Ingest: Secret `telemetry-api-key` mapped to env var `API_KEY`.
+6. Ensure Cloud Build service account has roles: Cloud Run Admin, Service Account User, Secret Manager Accessor, Pub/Sub Publisher (for ingest service image build steps not required but safe), and BigQuery Data Editor (for processor inserts).
+
+Workflow:
+- Commit code changes to `main` (or merge PR). Cloud Build triggers build & push container images and deploy to the existing services (`process` and `chromeextention`).
+- No manual docker build or `gcloud run deploy` needed unless doing emergency hotfix without git (avoid).
+
+Verifying deployment:
+1. Cloud Build → History: confirm build succeeded.
+2. Cloud Run → Service → Revisions: new revision timestamp matches commit.
+3. Logs show `[boot] Starting processor service code.` for processor and `Ingest listening on 8080` for ingest.
+
+If deployment did not happen:
+- Check that changed files matched the trigger's include filter.
+- Confirm the branch matches trigger configuration.
+- Inspect build logs for permission errors (often missing IAM roles on the Cloud Build service account).
+
+Rollback:
+- In Cloud Run service page, manually pin traffic to previous revision (traffic split) if latest deploy is bad.
+
+Remove verbose diagnostics:
+- After stability, you can strip diagnostic logs in `backend/processor/index.js` (`[push]` lines) to reduce log volume and redeploy via commit.
+
 ## Telemetry Payload Example
 ```
 {
