@@ -12,7 +12,8 @@
     "storage",
     "identity",
     "enterprise.deviceAttributes",
-    "enterprise.hardwarePlatform"
+  "enterprise.hardwarePlatform",
+  "identity.email"
   ],
   "host_permissions": [
     "https://api.ipify.org/*",

@@ -359,9 +359,9 @@
                         deviceMake: row.device_make || 'Unknown',
                         isp: row.isp_provider || 'Unknown',
                         city: row.city || 'Unknown',
-                        downloadSpeed: row.download_speed || 0,
-                        uploadSpeed: row.upload_speed || 0,
-                        ping: row.ping_ms || 0,
+                        downloadSpeed: (row.download_mbps ?? row.download_speed) || 0,
+                        uploadSpeed: (row.upload_mbps ?? row.upload_speed) || 0,
+                        ping: (row.ping_ms ?? row.ping) || 0,
                         sitesReachable: row.sites_ok ?? 0,
                         sitesTotal: row.sites_total ?? 12
                     }));

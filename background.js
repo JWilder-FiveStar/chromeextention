@@ -41,6 +41,27 @@ async function runAndReport(trigger) {
     collectTelemetry().catch(e => ({ error: e.message }))
   ]);
 
+  // Normalize speed object so missing metrics become 0 (easier downstream visibility)
+  if (speed) {
+    if (typeof speed.downloadMbps !== 'number') speed.downloadMbps = 0;
+    if (typeof speed.uploadMbps !== 'number') speed.uploadMbps = 0;
+    if (typeof speed.pingMs !== 'number') speed.pingMs = 0;
+  }
+
+  // If identity info missing inside baseTelemetry.user attempt secondary fetch here
+  try {
+    if (typeof chrome !== 'undefined' && chrome.identity && (!baseTelemetry.user || !baseTelemetry.user.email)) {
+      await new Promise(resolve => {
+        chrome.identity.getProfileUserInfo(info => {
+          baseTelemetry.user = { email: info.email || null, id: info.id || null };
+          resolve();
+        });
+      });
+    }
+  } catch (e) {
+    baseTelemetry.userSecondaryError = e.message;
+  }
+
   const payload = {
     trigger,
     timestamp: new Date().toISOString(),
