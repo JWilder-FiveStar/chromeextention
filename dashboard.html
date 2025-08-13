@@ -242,9 +242,10 @@
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             initializeCharts();
-            loadData();
-            // Auto-refresh every 5 minutes
-            setInterval(loadData, 5 * 60 * 1000);
+            // Force fresh on first load so we don't rely on any stale cached file
+            loadData(true);
+            // Auto-refresh every 5 minutes (non-forced)
+            setInterval(() => loadData(false), 5 * 60 * 1000);
         });
 
         function initializeCharts() {
@@ -364,7 +365,9 @@
                         ping: (row.ping_ms ?? row.ping) || 0,
                         sitesReachable: row.sites_ok ?? 0,
                         sitesTotal: row.sites_total ?? 12
-                    }));
+                    }))
+                    // Ensure newest first (descending publish time)
+                    .sort((a,b) => b.timestamp - a.timestamp);
                 } else {
                     // Fallback to sample data
                     data = generateSampleData();
@@ -524,8 +527,8 @@
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
             
-            // Show last 10 tests
-            const recentData = data.slice(-10).reverse();
+            // Data already sorted descending; take first 10 (newest)
+            const recentData = data.slice(0, 10);
             
             recentData.forEach(row => {
                 const tr = document.createElement('tr');

@@ -138,7 +138,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                             'sites_total': sites_total,
                             'request_id': r.get('requestId')
                         })
-                    print(f"✅ Fetched {len(enriched)} real records from BigQuery")
+                    if enriched:
+                        print(f"✅ Fetched {len(enriched)} real records (newest publish_time={enriched[0].get('publish_time')})")
+                    else:
+                        print("⚠️ Query succeeded but returned 0 rows")
                     with open('telemetry_data.json', 'w') as f:
                         json.dump(enriched, f, indent=2, default=str)
                     self.send_json_response(enriched)
