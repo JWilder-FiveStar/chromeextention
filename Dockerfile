@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Copy only package files first for layer caching
 COPY backend/ingest/package*.json ./
-RUN npm ci --only=production
+# Using npm install (no lockfile committed yet). For deterministic builds, commit a package-lock.json and switch back to `npm ci`.
+RUN npm install --omit=dev
 
 # Copy ingest source
 COPY backend/ingest/. .

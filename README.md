@@ -253,5 +253,8 @@ Set up two triggers:
 
 If builds fail with `Dockerfile: no such file`, ensure the `dir:` in the build step points to the folder containing the intended Dockerfile.
 
+Lockfile Note:
+Current Dockerfiles use `npm install --omit=dev` because no `package-lock.json` is committed. For reproducible builds, generate and commit a lockfile locally (`npm install`), then change Dockerfiles back to `npm ci`.
+
 ## License
 Internal / Proprietary (adjust as needed).
