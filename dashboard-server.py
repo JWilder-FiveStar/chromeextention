@@ -76,6 +76,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     for r in rows:
                         if not isinstance(r, dict):
                             continue
+                        # Skip records with null publish_time (essential for dashboard)
+                        if not r.get('publish_time'):
+                            continue
                         def parse_or_none(raw):
                             if not raw or not isinstance(raw, str):
                                 return None
@@ -110,6 +113,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         download_speed = num(speed_obj.get('downloadMbps'))
                         upload_speed = num(speed_obj.get('uploadMbps'))
                         ping_ms = num(speed_obj.get('pingMs') or speed_obj.get('pingMs'.lower()))
+                        
+                        # Check for failed tests and mark appropriately
+                        download_failed = speed_obj.get('downloadError') or speed_obj.get('downloadErrorFallback')
+                        ping_failed = speed_obj.get('pingError')
+                        
                         # Extract OS info if available
                         os_name = dev_meta.get('os') if isinstance(dev_meta, dict) else None
                         os_version = dev_meta.get('osVersion') if isinstance(dev_meta, dict) else None
@@ -131,9 +139,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                             'device_os_version': os_version or 'Unknown',
                             'isp_provider': isp_meta.get('provider') if isinstance(isp_meta, dict) and isp_meta.get('provider') else 'Unknown',
                             'city': isp_meta.get('city') if isinstance(isp_meta, dict) and isp_meta.get('city') else 'Unknown',
-                            'download_speed': download_speed if download_speed is not None else 0,
+                            'download_speed': download_speed if download_speed is not None and not download_failed else ('Failed' if download_failed else 0),
                             'upload_speed': upload_speed if upload_speed is not None else 0,
-                            'ping_ms': ping_ms if ping_ms is not None else 0,
+                            'ping_ms': ping_ms if ping_ms is not None and not ping_failed else ('Failed' if ping_failed else 0),
                             'sites_ok': sites_ok,
                             'sites_total': sites_total,
                             'request_id': r.get('requestId')

@@ -351,26 +351,36 @@
                 
                 if (response.ok) {
                     const rawData = await response.json();
-                    data = rawData.map(row => ({
-                        timestamp: new Date(row.publish_time.replace(' ', 'T')+ 'Z'),
-                        userEmail: row.user_email || 'Unknown',
-                        deviceType: row.device_type || 'Unknown',
-                        deviceOs: row.device_os || 'Unknown',
-                        deviceOsVersion: row.device_os_version || 'Unknown',
-                        deviceMake: row.device_make || 'Unknown',
-                        isp: row.isp_provider || 'Unknown',
-                        city: row.city || 'Unknown',
-                        downloadSpeed: (row.download_mbps ?? row.download_speed) || 0,
-                        uploadSpeed: (row.upload_mbps ?? row.upload_speed) || 0,
-                        ping: (row.ping_ms ?? row.ping) || 0,
-                        sitesReachable: row.sites_ok ?? 0,
-                        sitesTotal: row.sites_total ?? 12
-                    }))
-                    // Ensure newest first (descending publish time)
-                    .sort((a,b) => b.timestamp - a.timestamp);
+                    console.log('API response OK, raw data length:', rawData.length);
+                    if (rawData.length === 0) {
+                        console.warn('API returned empty array');
+                        showError('No data available - empty response from server');
+                        return;
+                    } else {
+                        data = rawData.map(row => ({
+                            timestamp: row.publish_time ? new Date(row.publish_time.replace(' ', 'T')+ 'Z') : new Date(),
+                            userEmail: row.user_email || 'Unknown',
+                            deviceType: row.device_type || 'Unknown',
+                            deviceOs: row.device_os || 'Unknown',
+                            deviceOsVersion: row.device_os_version || 'Unknown',
+                            deviceMake: row.device_make || 'Unknown',
+                            isp: row.isp_provider || 'Unknown',
+                            city: row.city || 'Unknown',
+                            downloadSpeed: (row.download_mbps ?? row.download_speed) === 'Failed' ? 'Failed' : ((row.download_mbps ?? row.download_speed) || 0),
+                            uploadSpeed: (row.upload_mbps ?? row.upload_speed) || 0,
+                            ping: (row.ping_ms ?? row.ping) === 'Failed' ? 'Failed' : ((row.ping_ms ?? row.ping) || 0),
+                            sitesReachable: row.sites_ok ?? 0,
+                            sitesTotal: row.sites_total ?? 12
+                        }))
+                        // Ensure newest first (descending publish time)
+                        .sort((a,b) => b.timestamp - a.timestamp);
+                        console.log('Processed data length:', data.length, 'newest timestamp:', data[0]?.timestamp);
+                    }
                 } else {
-                    // Fallback to sample data
-                    data = generateSampleData();
+                    console.error('API response not OK:', response.status, response.statusText);
+                    // Show error instead of sample data
+                    showError(`${response.status} ${response.statusText} - Unable to fetch data from server`);
+                    return;
                 }
                 
                 updateKPIs(data);
@@ -383,15 +393,13 @@
                 
             } catch (error) {
                 console.error('Error loading data:', error);
-                // Use sample data if API fails
-                const data = generateSampleData();
-                updateKPIs(data);
-                updateCharts(data); 
-                updateTable(data);
+                console.error('Error stack:', error.stack);
+                // Show error instead of sample data
+                showError(`Error: ${error.message} - Unable to fetch data`);
                 
                 const est = new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York'});
                 document.getElementById('lastUpdate').textContent = 
-                    `Last updated (EST): ${est} (sample data)`;
+                    `Last updated (EST): ${est} (error: ${error.message})`;
             }
         }
 
@@ -457,33 +465,24 @@
         // Kick off reachability load after main data
         document.addEventListener('DOMContentLoaded', loadReachability);
 
-        function generateSampleData() {
-            // Generate sample data for demonstration
-            const data = [];
-            const isps = ['Comcast', 'Verizon', 'AT&T', 'Charter', 'CenturyLink'];
-            const devices = ['Chromebook', 'Windows PC', 'Mac', 'iPad'];
-            const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix'];
-            
-            for (let i = 0; i < 50; i++) {
-                const timestamp = new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000);
-                data.push({
-                    timestamp: timestamp,
-                    deviceType: devices[Math.floor(Math.random() * devices.length)],
-                    isp: isps[Math.floor(Math.random() * isps.length)],
-                    city: cities[Math.floor(Math.random() * cities.length)],
-                    downloadSpeed: Math.random() * 100 + 10,
-                    uploadSpeed: Math.random() * 30 + 5,
-                    ping: Math.random() * 50 + 10,
-                    sitesReachable: Math.floor(Math.random() * 3) + 10 // 10-12 sites
-                });
-            }
-            return data;
-        }
-
         function updateKPIs(data) {
-            const avgDownload = data.reduce((sum, d) => sum + d.downloadSpeed, 0) / data.length;
-            const avgUpload = data.reduce((sum, d) => sum + d.uploadSpeed, 0) / data.length;
-            const avgPing = data.reduce((sum, d) => sum + d.ping, 0) / data.length;
+            // Filter out failed tests for KPI calculations
+            const validData = data.filter(d => d.downloadSpeed !== 'Failed' && d.ping !== 'Failed');
+            
+            if (validData.length === 0) {
+                document.getElementById('avgDownload').textContent = '--';
+                document.getElementById('avgUpload').textContent = '--';
+                document.getElementById('avgPing').textContent = '--';
+            } else {
+                const avgDownload = validData.reduce((sum, d) => sum + d.downloadSpeed, 0) / validData.length;
+                const avgUpload = validData.reduce((sum, d) => sum + d.uploadSpeed, 0) / validData.length;
+                const avgPing = validData.reduce((sum, d) => sum + d.ping, 0) / validData.length;
+                
+                document.getElementById('avgDownload').textContent = avgDownload.toFixed(1);
+                document.getElementById('avgUpload').textContent = avgUpload.toFixed(1);
+                document.getElementById('avgPing').textContent = avgPing.toFixed(0);
+            }
+            
             const totalTests = data.length;
             const avgSites = data.reduce((sum, d) => sum + (d.sitesReachable || 0), 0) / data.length;
             const avgTotalSites = data.reduce((sum, d) => sum + (d.sitesTotal || 0), 0) / data.length;
@@ -543,9 +542,9 @@
                     <td>${row.deviceOsVersion}</td>
                     <td>${row.city}</td>
                     <td>${row.isp}</td>
-                    <td><span class="status-indicator status-${speedStatus}"></span>${row.downloadSpeed.toFixed(1)} Mbps</td>
+                    <td><span class="status-indicator status-${speedStatus}"></span>${row.downloadSpeed === 'Failed' ? 'Failed' : row.downloadSpeed.toFixed(1) + ' Mbps'}</td>
                     <td>${row.uploadSpeed.toFixed(1)} Mbps</td>
-                    <td>${row.ping.toFixed(0)} ms</td>
+                    <td>${row.ping === 'Failed' ? 'Failed' : row.ping.toFixed(0) + ' ms'}</td>
                     <td><span class="status-indicator status-${siteStatus}"></span>${row.sitesReachable}/${row.sitesTotal}</td>
                 `;
                 tbody.appendChild(tr);
@@ -608,8 +607,22 @@
         }
 
         function showError(message) {
+            // Clear KPIs
+            document.getElementById('avgDownload').textContent = '--';
+            document.getElementById('avgUpload').textContent = '--';
+            document.getElementById('avgPing').textContent = '--';
+            document.getElementById('totalTests').textContent = '--';
+            document.getElementById('siteAvailability').textContent = '--';
+            
+            // Show error in table
             document.getElementById('dataTableBody').innerHTML = 
-                `<tr><td colspan="8" style="color: red; text-align: center;">${message}</td></tr>`;
+                `<tr><td colspan="11" style="color: red; text-align: center; padding: 40px;">${message}</td></tr>`;
+            
+            // Clear charts
+            if (speedChart) speedChart.data.labels = speedChart.data.datasets[0].data = speedChart.data.datasets[1].data = [], speedChart.update();
+            if (ispChart) ispChart.data.labels = ispChart.data.datasets[0].data = [], ispChart.update();
+            if (deviceChart) deviceChart.data.labels = deviceChart.data.datasets[0].data = [], deviceChart.update();
+            if (geoChart) geoChart.data.labels = geoChart.data.datasets[0].data = [], geoChart.update();
         }
     </script>
 </body>

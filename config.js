@@ -5,11 +5,11 @@ export const CONFIG = {
   autoReportIntervalMinutes: 60, // periodic reporting interval
   reachabilityTimeoutMs: 4000,
   speedTest: {
-    downloadUrl: 'https://speed.hetzner.de/5MB.bin', // modest size for quick test
+    downloadUrl: 'https://httpbin.org/bytes/1048576', // 1MB from httpbin (more reliable)
     uploadEndpoint: 'https://httpbin.org/post', // echoes data size
-  uploadSizeBytes: 256 * 1024, // 256KB synthetic blob
-  fallbackDownloadUrl: 'https://speed.hetzner.de/1MB.bin',
-  fallbackParallelRequests: 4
+    uploadSizeBytes: 256 * 1024, // 256KB synthetic blob
+    fallbackDownloadUrl: 'https://httpbin.org/bytes/524288', // 512KB fallback
+    fallbackParallelRequests: 4
   },
   reachabilityUrls: [
     'https://classroom.google.com',
