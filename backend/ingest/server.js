@@ -12,7 +12,7 @@ app.use(express.json({ limit: '256kb' }));
 
 const pubsub = new PubSub();
 const TOPIC = process.env.TOPIC || 'telemetry-data';
-const API_KEY = process.env.API_KEY || 'P/aOCbkc0WPzrldkfqkoeyTKz0nabNFtQB6+Eb20sG0='; // fallback for development
+const API_KEY = process.env.API_KEY; // Check what's actually set in Cloud Run
 
 app.post('/telemetry', async (req, res) => {
   const receivedKey = req.get('x-api-key');
@@ -50,7 +50,8 @@ app.get('/debug', (_req, res) => {
   res.json({
     topic: TOPIC,
     hasApiKey: !!API_KEY,
-    apiKeyPrefix: API_KEY ? API_KEY.slice(0, 8) + '...' : 'none',
+    apiKeyPrefix: API_KEY ? API_KEY.slice(0, 16) + '...' : 'none',
+    apiKeyLength: API_KEY ? API_KEY.length : 0,
     nodeEnv: process.env.NODE_ENV,
     timestamp: new Date().toISOString()
   });
