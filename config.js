@@ -7,7 +7,9 @@ export const CONFIG = {
   speedTest: {
     downloadUrl: 'https://speed.hetzner.de/5MB.bin', // modest size for quick test
     uploadEndpoint: 'https://httpbin.org/post', // echoes data size
-    uploadSizeBytes: 256 * 1024 // 256KB synthetic blob
+  uploadSizeBytes: 256 * 1024, // 256KB synthetic blob
+  fallbackDownloadUrl: 'https://speed.hetzner.de/1MB.bin',
+  fallbackParallelRequests: 4
   },
   reachabilityUrls: [
     'https://classroom.google.com',

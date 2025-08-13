@@ -48,6 +48,24 @@ export async function runSpeedTest(cfg) {
       results.downloadFallbackUsed = true;
     } catch (e2) {
       results.downloadErrorFallback = e2.message;
+      // Parallel tiny downloads fallback
+      try {
+        const parallel = cfg.fallbackParallelRequests || 4;
+        const smallUrl = (cfg.fallbackDownloadUrl || 'https://speed.hetzner.de/1MB.bin');
+        const start = performance.now();
+        const fetches = Array.from({ length: parallel }, () => timedFetch(smallUrl + '?p=' + Math.random(), { cache: 'no-store' }, 10000));
+        const resps = await Promise.all(fetches);
+        let totalBytes = 0;
+        for (const r of resps) totalBytes += (await r.blob()).size;
+        const secs = (performance.now() - start)/1000;
+        const bits = totalBytes * 8;
+        results.downloadMbps = +((bits / secs)/1_000_000).toFixed(2);
+        results.downloadBytes = totalBytes;
+        results.downloadSeconds = +secs.toFixed(2);
+        results.downloadParallelFallbackUsed = true;
+      } catch (e3) {
+        results.downloadParallelFallbackError = e3.message;
+      }
     }
   }
 
