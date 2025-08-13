@@ -11,7 +11,8 @@ const bq = new BigQuery();
 const storage = new Storage();
 
 const DATASET = process.env.DATASET || 'telemetry';
-const RAW_TABLE = process.env.RAW_TABLE || 'raw';
+// IMPORTANT: Existing table name in BigQuery is 'pubsub_raw'
+const RAW_TABLE = process.env.RAW_TABLE || 'pubsub_raw';
 // Desired flattened columns to guarantee in table
 const FLAT_SCHEMA_FIELDS = [
   { name: 'download_mbps', type: 'FLOAT' },
@@ -27,13 +28,38 @@ let schemaEnsured = false;
 async function ensureSchema() {
   if (schemaEnsured) return;
   try {
-    const table = bq.dataset(DATASET).table(RAW_TABLE);
-    const [meta] = await table.getMetadata();
+    const datasetRef = bq.dataset(DATASET);
+    const tableRef = datasetRef.table(RAW_TABLE);
+    let meta;
+    try {
+      [meta] = await tableRef.getMetadata();
+    } catch (e) {
+      if (e.code === 404) {
+        console.log(`Table ${DATASET}.${RAW_TABLE} not found. Creating...`);
+        const baseFields = [
+          { name: 'trigger', type: 'STRING' },
+          { name: 'timestamp', type: 'TIMESTAMP' },
+          { name: 'durationMs', type: 'INT64' },
+          { name: 'version', type: 'STRING' },
+          { name: 'speed', type: 'STRING' },
+            // stored JSON as STRING
+          { name: 'reachability', type: 'STRING' },
+          { name: 'device', type: 'STRING' },
+          { name: 'ingestReceivedAt', type: 'TIMESTAMP' },
+          { name: 'ingestSourceIp', type: 'STRING' },
+          { name: 'requestId', type: 'STRING' }
+        ];
+        const fullFields = baseFields.concat(FLAT_SCHEMA_FIELDS);
+        await datasetRef.createTable(RAW_TABLE, { schema: fullFields });
+        console.log('Created table with schema (base + flattened).');
+        [meta] = await tableRef.getMetadata();
+      } else throw e;
+    }
     const existing = new Set(meta.schema.fields.map(f => f.name));
     const toAdd = FLAT_SCHEMA_FIELDS.filter(f => !existing.has(f.name));
     if (toAdd.length) {
       const newFields = meta.schema.fields.concat(toAdd);
-      await table.setMetadata({ schema: { fields: newFields } });
+      await tableRef.setMetadata({ schema: { fields: newFields } });
       console.log('BigQuery schema updated: added fields', toAdd.map(f=>f.name).join(','));
     }
     schemaEnsured = true;
@@ -92,10 +118,12 @@ app.post('/push', async (req, res) => {
     
     console.log('Attempting BigQuery insert with row:', JSON.stringify(row, null, 2));
     try {
-      await bq.dataset(DATASET).table(RAW_TABLE).insert([row]);
-      console.log('BigQuery insert successful');
+  const tableRef = bq.dataset(DATASET).table(RAW_TABLE);
+  await tableRef.insert([row]);
+  console.log(`BigQuery insert successful into ${DATASET}.${RAW_TABLE}`);
     } catch (insertError) {
       console.error('BigQuery insert failed summary:', insertError.name || 'Unknown', insertError.message || '');
+  console.error('Dataset/Table targeted:', DATASET, RAW_TABLE);
       if (insertError.errors && Array.isArray(insertError.errors)) {
         insertError.errors.forEach((errGroup, idx) => {
           console.error(` BigQuery errGroup[${idx}] raw:`, JSON.stringify(errGroup));
