@@ -11,8 +11,8 @@ const app = express();
 app.use(express.json({ limit: '256kb' }));
 
 const pubsub = new PubSub();
-const TOPIC = process.env.TOPIC || 'telemetry-raw';
-const API_KEY = process.env.API_KEY; // set in Cloud Run settings
+const TOPIC = process.env.TOPIC || 'telemetry-data';
+const API_KEY = process.env.API_KEY || 'P/aOCbkc0WPzrldkfqkoeyTKz0nabNFtQB6+Eb20sG0='; // fallback for development
 
 app.post('/telemetry', async (req, res) => {
   if (!API_KEY || req.get('x-api-key') !== API_KEY) return res.status(401).json({ error: 'unauthorized' });
