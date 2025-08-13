@@ -1,7 +1,7 @@
 // Basic configuration for telemetry extension
 export const CONFIG = {
   reportingEndpoint: 'https://chromeextention-454431786636.us-east5.run.app/telemetry', // Cloud Run ingest endpoint
-  apiKey: '2DiB5JZ6QDGcdC1+RbcZrJhMoQ6KpZHTMhkX8tWqFAM=', // Backend ingest API key (X-Api-Key header)
+  apiKey: '2DiB5JZ6dA4h24lbBgm/BuGS4+VfGL5AgTg0XzMhAME=', // Backend ingest API key (X-Api-Key header)
   autoReportIntervalMinutes: 60, // periodic reporting interval
   reachabilityTimeoutMs: 4000,
   speedTest: {
