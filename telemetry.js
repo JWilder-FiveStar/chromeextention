@@ -2,12 +2,12 @@
 // Collects device, browser, network, IP, and geolocation (if permitted) telemetry.
 
 export async function collectTelemetry() {
-  const nav = navigator;
-  const connection = nav.connection || nav.mozConnection || nav.webkitConnection;
-  const ua = nav.userAgent;
-  const language = nav.language;
-  const platform = nav.platform;
-  const languages = nav.languages;
+  const nav = typeof navigator !== 'undefined' ? navigator : {};
+  const connection = nav && (nav.connection || nav.mozConnection || nav.webkitConnection);
+  const ua = nav.userAgent || '';
+  const language = nav.language || 'en-US';
+  const platform = nav.platform || 'unknown';
+  const languages = nav.languages || [language];
 
   // Extract device info from user agent
   const deviceInfo = extractDeviceInfo(ua);
@@ -18,11 +18,11 @@ export async function collectTelemetry() {
     language,
     languages,
     platform,
-    vendor: nav.vendor,
-    hardwareConcurrency: nav.hardwareConcurrency,
-    deviceMemory: nav.deviceMemory,
-    cookieEnabled: nav.cookieEnabled,
-    onLine: nav.onLine,
+    vendor: nav.vendor || null,
+    hardwareConcurrency: nav.hardwareConcurrency || null,
+    deviceMemory: nav.deviceMemory || null,
+    cookieEnabled: nav.cookieEnabled || null,
+    onLine: nav.onLine || null,
     // Device identification
     device: {
       make: deviceInfo.make,
@@ -37,25 +37,57 @@ export async function collectTelemetry() {
       isTablet: /Tablet|iPad/i.test(ua)
     },
     // Screen information
-    screen: {
+    // Screen information (guard for service worker where screen/window undefined)
+    screen: (typeof screen !== 'undefined') ? {
       width: screen.width,
       height: screen.height,
       availWidth: screen.availWidth,
       availHeight: screen.availHeight,
       colorDepth: screen.colorDepth,
       pixelDepth: screen.pixelDepth,
-      devicePixelRatio: window.devicePixelRatio || 1
-    },
-    // Window/viewport information  
-    viewport: {
+      devicePixelRatio: (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1
+    } : null,
+    // Window/viewport information (may be null in service worker)
+    viewport: (typeof window !== 'undefined') ? {
       width: window.innerWidth,
       height: window.innerHeight,
       outerWidth: window.outerWidth,
       outerHeight: window.outerHeight
-    },
+    } : null,
     // Timezone
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    timezone: (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC'
   };
+
+  // Attempt to collect signed-in user (managed accounts) and hardware platform (Chromebook specifics)
+  try {
+    if (typeof chrome !== 'undefined' && chrome.identity && chrome.identity.getProfileUserInfo) {
+      await new Promise(resolve => {
+        chrome.identity.getProfileUserInfo(info => {
+          base.user = { email: info.email || null, id: info.id || null };
+          resolve();
+        });
+      });
+    }
+  } catch (e) { base.userError = e.message; }
+
+  try {
+    if (typeof chrome !== 'undefined' && chrome.enterprise && chrome.enterprise.hardwarePlatform && chrome.enterprise.hardwarePlatform.getHardwarePlatformInfo) {
+      await new Promise(resolve => {
+        chrome.enterprise.hardwarePlatform.getHardwarePlatformInfo(h => {
+          base.hardware = h; // {model, serialNumber? (policy dependent)}
+          resolve();
+        });
+      });
+    }
+  } catch (e) { base.hardwareError = e.message; }
+
+  try {
+    if (typeof chrome !== 'undefined' && chrome.enterprise && chrome.enterprise.deviceAttributes && chrome.enterprise.deviceAttributes.getDirectoryDeviceId) {
+      await new Promise(resolve => {
+        chrome.enterprise.deviceAttributes.getDirectoryDeviceId(id => { base.directoryDeviceId = id || null; resolve(); });
+      });
+    }
+  } catch (e) { base.deviceAttrError = e.message; }
 
   if (connection) {
     base.network = {

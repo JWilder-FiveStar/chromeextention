@@ -1,0 +1,1 @@
+{"trigger":"cli_test","timestamp":"2025-08-13T04:20:00Z","durationMs":100,"version":"1.0","speed":{"downloadMbps":1},"reachability":[{"url":"https://google.com"}],"device":"{\"x\":1}","ingestReceivedAt":"2025-08-13T04:20:01Z","ingestSourceIp":null,"requestId":"cli1"}

@@ -115,7 +115,7 @@
     <div class="header">
         <h1>🌐 K-12 Network Telemetry Dashboard</h1>
         <p>Real-time network performance monitoring for educational devices</p>
-        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+    <button class="refresh-btn" onclick="loadData(true)">🔄 Refresh Data</button>
         <span id="lastUpdate" style="margin-left: 20px; color: #666;"></span>
     </div>
 
@@ -172,7 +172,10 @@
             <thead>
                 <tr>
                     <th>Time</th>
+                    <th>User</th>
                     <th>Device</th>
+                    <th>OS</th>
+                    <th>OS Version</th>
                     <th>Location</th>
                     <th>ISP</th>
                     <th>Download</th>
@@ -188,6 +191,43 @@
             </tbody>
         </table>
     </div>
+
+        <div class="data-table" style="margin-top:30px;">
+                <div class="chart-title" style="padding: 20px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>🛰️ Site Reachability (last 7 days)</span>
+                        <button class="refresh-btn" onclick="loadReachability()">Refresh Reachability</button>
+                </div>
+                <table>
+                        <thead>
+                                <tr>
+                                        <th>Site</th>
+                                        <th>Availability %</th>
+                                        <th>Checks</th>
+                                        <th>OK</th>
+                                        <th>Avg Latency (ms)</th>
+                                        <th>Min</th>
+                                        <th>Max</th>
+                                        <th>Last Seen</th>
+                                </tr>
+                        </thead>
+                        <tbody id="reachTableBody">
+                                <tr><td colspan="8" class="loading">Loading reachability...</td></tr>
+                        </tbody>
+                </table>
+        </div>
+
+        <div id="reachModal" style="position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center;">
+            <div style="background:#fff; padding:20px; max-width:800px; width:90%; max-height:80%; overflow:auto; border-radius:8px;">
+                <h2 id="modalTitle">Site Detail</h2>
+                <div>
+                    <table style="font-size:12px;">
+                        <thead><tr><th>Time</th><th>Status</th><th>Latency</th><th>Error</th><th>Request ID</th></tr></thead>
+                        <tbody id="reachDetailBody"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+                <div style="margin-top:10px; text-align:right;"><button class="refresh-btn" onclick="closeReachModal()">Close</button></div>
+            </div>
+        </div>
 
     <script>
         // Configuration
@@ -302,24 +342,28 @@
             });
         }
 
-        async function loadData() {
+    async function loadData(forceFresh=false) {
             try {
                 // Try to fetch real data from BigQuery via our API
-                const response = await fetch('/api/data');
+        const response = await fetch(forceFresh ? '/api/data?fresh=1' : '/api/data');
                 let data;
                 
                 if (response.ok) {
                     const rawData = await response.json();
                     data = rawData.map(row => ({
-                        timestamp: new Date(row.publish_time),
+                        timestamp: new Date(row.publish_time.replace(' ', 'T')+ 'Z'),
+                        userEmail: row.user_email || 'Unknown',
                         deviceType: row.device_type || 'Unknown',
-                        deviceMake: row.device_make || 'Unknown', 
+                        deviceOs: row.device_os || 'Unknown',
+                        deviceOsVersion: row.device_os_version || 'Unknown',
+                        deviceMake: row.device_make || 'Unknown',
                         isp: row.isp_provider || 'Unknown',
                         city: row.city || 'Unknown',
                         downloadSpeed: row.download_speed || 0,
                         uploadSpeed: row.upload_speed || 0,
                         ping: row.ping_ms || 0,
-                        sitesReachable: Math.floor(Math.random() * 3) + 10 // Mock for now
+                        sitesReachable: row.sites_ok ?? 0,
+                        sitesTotal: row.sites_total ?? 12
                     }));
                 } else {
                     // Fallback to sample data
@@ -330,8 +374,9 @@
                 updateCharts(data);
                 updateTable(data);
                 
+                const est = new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York'});
                 document.getElementById('lastUpdate').textContent = 
-                    `Last updated: ${new Date().toLocaleTimeString()}`;
+                    `Last updated (EST): ${est}`;
                 
             } catch (error) {
                 console.error('Error loading data:', error);
@@ -341,10 +386,73 @@
                 updateCharts(data); 
                 updateTable(data);
                 
+                const est = new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York'});
                 document.getElementById('lastUpdate').textContent = 
-                    `Last updated: ${new Date().toLocaleTimeString()} (sample data)`;
+                    `Last updated (EST): ${est} (sample data)`;
             }
         }
+
+        // Reachability loading
+        async function loadReachability() {
+            const body = document.getElementById('reachTableBody');
+            body.innerHTML = '<tr><td colspan="8" class="loading">Loading reachability...</td></tr>';
+            try {
+                const resp = await fetch('/api/reachability/summary');
+                if (!resp.ok) throw new Error('summary fetch failed');
+                const rows = await resp.json();
+                if (!rows.length) {
+                    body.innerHTML = '<tr><td colspan="8" class="loading">No reachability data</td></tr>';
+                    return;
+                }
+                body.innerHTML = rows.map(r => `
+                  <tr onclick="openReachModal('${r.url}')" style="cursor:pointer;">
+                    <td>${r.url}</td>
+                    <td>${r.availability_pct}%</td>
+                    <td>${r.total_checks}</td>
+                    <td>${r.ok_checks}</td>
+                    <td>${r.avg_latency_ms}</td>
+                    <td>${r.min_latency_ms}</td>
+                    <td>${r.max_latency_ms}</td>
+                    <td>${r.last_seen}</td>
+                  </tr>`).join('');
+            } catch (e) {
+                body.innerHTML = `<tr><td colspan="8" class="loading">Error: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function openReachModal(url) {
+            const modal = document.getElementById('reachModal');
+            document.getElementById('modalTitle').textContent = `Site Detail: ${url}`;
+            const tbody = document.getElementById('reachDetailBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+            modal.style.display = 'flex';
+            try {
+                const resp = await fetch(`/api/reachability/site?url=${encodeURIComponent(url)}`);
+                if (!resp.ok) throw new Error('detail fetch failed');
+                const rows = await resp.json();
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="loading">No data</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map(r => `
+                   <tr>
+                     <td>${r.ts}</td>
+                     <td>${r.ok ? '✅' : (r.status ? r.status : '❌')}</td>
+                     <td>${r.latency_ms ?? ''}</td>
+                     <td>${r.error || ''}</td>
+                     <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis;">${r.requestId}</td>
+                   </tr>`).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" class="loading">Error: ${e.message}</td></tr>`;
+            }
+        }
+
+        function closeReachModal() {
+            document.getElementById('reachModal').style.display = 'none';
+        }
+
+        // Kick off reachability load after main data
+        document.addEventListener('DOMContentLoaded', loadReachability);
 
         function generateSampleData() {
             // Generate sample data for demonstration
@@ -374,8 +482,9 @@
             const avgUpload = data.reduce((sum, d) => sum + d.uploadSpeed, 0) / data.length;
             const avgPing = data.reduce((sum, d) => sum + d.ping, 0) / data.length;
             const totalTests = data.length;
-            const avgSites = data.reduce((sum, d) => sum + d.sitesReachable, 0) / data.length;
-            const siteAvailability = (avgSites / 12) * 100;
+            const avgSites = data.reduce((sum, d) => sum + (d.sitesReachable || 0), 0) / data.length;
+            const avgTotalSites = data.reduce((sum, d) => sum + (d.sitesTotal || 0), 0) / data.length;
+            const siteAvailability = avgTotalSites ? (avgSites / avgTotalSites) * 100 : 0;
 
             document.getElementById('avgDownload').textContent = avgDownload.toFixed(1);
             document.getElementById('avgUpload').textContent = avgUpload.toFixed(1);
@@ -424,14 +533,17 @@
                 const siteStatus = row.sitesReachable >= 11 ? 'good' : row.sitesReachable >= 9 ? 'warning' : 'error';
                 
                 tr.innerHTML = `
-                    <td>${row.timestamp.toLocaleTimeString()}</td>
+                    <td>${row.timestamp.toLocaleTimeString('en-US',{timeZone:'America/New_York'})}</td>
+                    <td>${row.userEmail}</td>
                     <td>${row.deviceType}</td>
+                    <td>${row.deviceOs}</td>
+                    <td>${row.deviceOsVersion}</td>
                     <td>${row.city}</td>
                     <td>${row.isp}</td>
                     <td><span class="status-indicator status-${speedStatus}"></span>${row.downloadSpeed.toFixed(1)} Mbps</td>
                     <td>${row.uploadSpeed.toFixed(1)} Mbps</td>
                     <td>${row.ping.toFixed(0)} ms</td>
-                    <td><span class="status-indicator status-${siteStatus}"></span>${row.sitesReachable}/12</td>
+                    <td><span class="status-indicator status-${siteStatus}"></span>${row.sitesReachable}/${row.sitesTotal}</td>
                 `;
                 tbody.appendChild(tr);
             });

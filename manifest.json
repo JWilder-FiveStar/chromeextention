@@ -9,7 +9,10 @@
   },
   "permissions": [
     "alarms",
-    "storage"
+    "storage",
+    "identity",
+    "enterprise.deviceAttributes",
+    "enterprise.hardwarePlatform"
   ],
   "host_permissions": [
     "https://api.ipify.org/*",
