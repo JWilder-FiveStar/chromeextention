@@ -1,8 +1,12 @@
-# Cloud Build config for processor service
-# Trigger suggestion: path filter backend/processor/**
+## Cloud Build config for PROCESSOR service (Pub/Sub push consumer -> BigQuery/GCS)
+## Create a trigger with: included files filter backend/processor/** (and this file)
+## This replaces manual docker build + gcloud run deploy.
+## NOTE: RAW_TABLE was previously mis-set to 'raw'. Actual target table is 'pubsub_raw'.
 substitutions:
   _REGION: us-east5
   _SERVICE: telemetry-processor
+  _DATASET: telemetry
+  _RAW_TABLE: pubsub_raw
 steps:
   - name: gcr.io/cloud-builders/docker
     dir: backend/processor
@@ -14,12 +18,14 @@ steps:
     args:
       - -c
       - |
+        set -euo pipefail
+        echo "Deploying ${_SERVICE} to region ${_REGION} (dataset=${_DATASET} table=${_RAW_TABLE})"
         gcloud run deploy ${_SERVICE} \
           --image gcr.io/$PROJECT_ID/${_SERVICE}:$COMMIT_SHA \
           --region ${_REGION} \
           --platform managed \
           --allow-unauthenticated \
-          --set-env-vars BUCKET=$$BUCKET,DATASET=telemetry,RAW_TABLE=raw
+          --set-env-vars BUCKET=$$BUCKET,DATASET=${_DATASET},RAW_TABLE=${_RAW_TABLE}
     secretEnv: [BUCKET]
 images:
   - gcr.io/$PROJECT_ID/${_SERVICE}:$COMMIT_SHA
