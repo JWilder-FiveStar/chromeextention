@@ -6,6 +6,7 @@ import { Storage } from '@google-cloud/storage';
 
 const app = express();
 app.use(express.json({ limit: '512kb' }));
+console.log('[boot] Starting processor service code. Expect to see this in correct deployment.');
 
 const bq = new BigQuery();
 const storage = new Storage();
@@ -78,9 +79,12 @@ function decodeMessage(req) {
 }
 
 app.post('/push', async (req, res) => {
+  console.log('[push] received request headers:', Object.fromEntries(Object.entries(req.headers).filter(([k]) => ['ce-type','user-agent','content-type'].includes(k))));
+  try { console.log('[push] raw body snippet:', JSON.stringify(req.body).slice(0,300)); } catch {}
   try {
   await ensureSchema();
     const data = decodeMessage(req);
+    console.log('[push] decoded message keys:', Object.keys(data));
     const datePart = (data._ingest?.receivedAt || new Date().toISOString()).slice(0,10);
     const objectName = `raw/date=${datePart}/${data._ingest?.requestId || Date.now()}.json`;
     if (!BUCKET) throw new Error('BUCKET env var required');
