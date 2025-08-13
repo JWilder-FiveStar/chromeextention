@@ -13,6 +13,7 @@
   ],
   "host_permissions": [
     "https://api.ipify.org/*",
+    "https://ipapi.co/*",
     "https://httpbin.org/*",
     "https://speed.hetzner.de/*",
     "https://chromeextention-454431786636.us-east5.run.app/*",
