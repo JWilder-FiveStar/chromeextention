@@ -1,8 +1,0 @@
-{
-  "name": "telemetry-backend-monorepo",
-  "private": true,
-  "workspaces": [
-    "ingest",
-    "processor"
-  ]
-}
