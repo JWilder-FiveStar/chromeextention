@@ -467,7 +467,7 @@
 
         function updateKPIs(data) {
             // Filter out failed tests for KPI calculations
-            const validData = data.filter(d => d.downloadSpeed !== 'Failed' && d.ping !== 'Failed');
+            const validData = data.filter(d => typeof d.downloadSpeed === 'number' && typeof d.ping === 'number');
             
             if (validData.length === 0) {
                 document.getElementById('avgDownload').textContent = '--';
@@ -531,7 +531,8 @@
             
             recentData.forEach(row => {
                 const tr = document.createElement('tr');
-                const speedStatus = row.downloadSpeed > 25 ? 'good' : row.downloadSpeed > 10 ? 'warning' : 'error';
+                const speedStatus = (typeof row.downloadSpeed === 'number' && row.downloadSpeed > 25) ? 'good' : 
+                                   (typeof row.downloadSpeed === 'number' && row.downloadSpeed > 10) ? 'warning' : 'error';
                 const siteStatus = row.sitesReachable >= 11 ? 'good' : row.sitesReachable >= 9 ? 'warning' : 'error';
                 
                 tr.innerHTML = `
@@ -542,9 +543,9 @@
                     <td>${row.deviceOsVersion}</td>
                     <td>${row.city}</td>
                     <td>${row.isp}</td>
-                    <td><span class="status-indicator status-${speedStatus}"></span>${row.downloadSpeed === 'Failed' ? 'Failed' : row.downloadSpeed.toFixed(1) + ' Mbps'}</td>
-                    <td>${row.uploadSpeed.toFixed(1)} Mbps</td>
-                    <td>${row.ping === 'Failed' ? 'Failed' : row.ping.toFixed(0) + ' ms'}</td>
+                    <td><span class="status-indicator status-${speedStatus}"></span>${row.downloadSpeed === 'Failed' ? 'Failed' : (typeof row.downloadSpeed === 'number' ? row.downloadSpeed.toFixed(1) + ' Mbps' : '0.0 Mbps')}</td>
+                    <td>${typeof row.uploadSpeed === 'number' ? row.uploadSpeed.toFixed(1) + ' Mbps' : '0.0 Mbps'}</td>
+                    <td>${row.ping === 'Failed' ? 'Failed' : (typeof row.ping === 'number' ? row.ping.toFixed(0) + ' ms' : '0 ms')}</td>
                     <td><span class="status-indicator status-${siteStatus}"></span>${row.sitesReachable}/${row.sitesTotal}</td>
                 `;
                 tbody.appendChild(tr);
@@ -559,16 +560,21 @@
                 if (!hourly[hour]) {
                     hourly[hour] = { total: 0, downloads: [], uploads: [] };
                 }
-                hourly[hour].downloads.push(d.downloadSpeed);
-                hourly[hour].uploads.push(d.uploadSpeed);
+                // Only include numeric values for charts
+                if (typeof d.downloadSpeed === 'number') {
+                    hourly[hour].downloads.push(d.downloadSpeed);
+                }
+                if (typeof d.uploadSpeed === 'number') {
+                    hourly[hour].uploads.push(d.uploadSpeed);
+                }
             });
             
             Object.keys(hourly).forEach(hour => {
                 const downloads = hourly[hour].downloads;
                 const uploads = hourly[hour].uploads;
                 hourly[hour] = {
-                    avgDownload: downloads.reduce((a, b) => a + b, 0) / downloads.length,
-                    avgUpload: uploads.reduce((a, b) => a + b, 0) / uploads.length
+                    avgDownload: downloads.length > 0 ? downloads.reduce((a, b) => a + b, 0) / downloads.length : 0,
+                    avgUpload: uploads.length > 0 ? uploads.reduce((a, b) => a + b, 0) / uploads.length : 0
                 };
             });
             
@@ -579,12 +585,15 @@
             const ispData = {};
             data.forEach(d => {
                 if (!ispData[d.isp]) ispData[d.isp] = [];
-                ispData[d.isp].push(d.downloadSpeed);
+                // Only include numeric download speeds
+                if (typeof d.downloadSpeed === 'number') {
+                    ispData[d.isp].push(d.downloadSpeed);
+                }
             });
             
             Object.keys(ispData).forEach(isp => {
                 const speeds = ispData[isp];
-                ispData[isp] = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                ispData[isp] = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
             });
             
             return ispData;
