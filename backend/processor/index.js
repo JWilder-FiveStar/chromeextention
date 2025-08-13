@@ -12,6 +12,36 @@ const storage = new Storage();
 
 const DATASET = process.env.DATASET || 'telemetry';
 const RAW_TABLE = process.env.RAW_TABLE || 'raw';
+// Desired flattened columns to guarantee in table
+const FLAT_SCHEMA_FIELDS = [
+  { name: 'download_mbps', type: 'FLOAT' },
+  { name: 'upload_mbps', type: 'FLOAT' },
+  { name: 'ping_ms', type: 'FLOAT' },
+  { name: 'user_email', type: 'STRING' },
+  { name: 'device_os', type: 'STRING' },
+  { name: 'device_os_version', type: 'STRING' },
+  { name: 'device_type', type: 'STRING' }
+];
+
+let schemaEnsured = false;
+async function ensureSchema() {
+  if (schemaEnsured) return;
+  try {
+    const table = bq.dataset(DATASET).table(RAW_TABLE);
+    const [meta] = await table.getMetadata();
+    const existing = new Set(meta.schema.fields.map(f => f.name));
+    const toAdd = FLAT_SCHEMA_FIELDS.filter(f => !existing.has(f.name));
+    if (toAdd.length) {
+      const newFields = meta.schema.fields.concat(toAdd);
+      await table.setMetadata({ schema: { fields: newFields } });
+      console.log('BigQuery schema updated: added fields', toAdd.map(f=>f.name).join(','));
+    }
+    schemaEnsured = true;
+  } catch (e) {
+    console.warn('ensureSchema failed (will retry later):', e.message);
+  }
+}
+
 const BUCKET = process.env.BUCKET; // required
 
 function decodeMessage(req) {
@@ -23,6 +53,7 @@ function decodeMessage(req) {
 
 app.post('/push', async (req, res) => {
   try {
+  await ensureSchema();
     const data = decodeMessage(req);
     const datePart = (data._ingest?.receivedAt || new Date().toISOString()).slice(0,10);
     const objectName = `raw/date=${datePart}/${data._ingest?.requestId || Date.now()}.json`;
@@ -32,10 +63,9 @@ app.post('/push', async (req, res) => {
     // Insert into BigQuery
     // Extract nested fields for flattened columns
     const speed = data.speed || {};
-    const reach = data.reachability || {};
     const device = data.device || {};
     const devInner = device.device || {};
-    const row = {
+    const baseRow = {
       trigger: data.trigger,
       timestamp: data.timestamp,
       durationMs: data.durationMs,
@@ -44,17 +74,20 @@ app.post('/push', async (req, res) => {
       speed: data.speed ? JSON.stringify(data.speed) : null,
       reachability: data.reachability ? JSON.stringify(data.reachability) : null,
       device: data.device ? JSON.stringify(data.device) : null,
-      // Flattened fields for easier querying (add columns via ALTER TABLE beforehand)
+      ingestReceivedAt: data._ingest?.receivedAt,
+      ingestSourceIp: data._ingest?.sourceIp || null,
+      requestId: data._ingest?.requestId || null
+    };
+    // Always include flattened fields (ensureSchema already attempted)
+    const row = {
+      ...baseRow,
       download_mbps: typeof speed.downloadMbps === 'number' ? speed.downloadMbps : null,
       upload_mbps: typeof speed.uploadMbps === 'number' ? speed.uploadMbps : null,
       ping_ms: typeof speed.pingMs === 'number' ? speed.pingMs : null,
       user_email: device.user && device.user.email ? device.user.email : null,
       device_os: devInner.os || null,
       device_os_version: devInner.osVersion || null,
-      device_type: devInner.type || null,
-      ingestReceivedAt: data._ingest?.receivedAt,
-      ingestSourceIp: data._ingest?.sourceIp || null,
-      requestId: data._ingest?.requestId || null
+      device_type: devInner.type || null
     };
     
     console.log('Attempting BigQuery insert with row:', JSON.stringify(row, null, 2));
