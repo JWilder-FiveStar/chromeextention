@@ -1,8 +1,8 @@
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-# No lockfile committed; using npm install. Add package-lock.json and switch to npm ci for deterministic builds.
-RUN npm install --omit=dev
+# Now using npm ci with committed package-lock.json for reproducible builds
+RUN npm ci --omit=dev
 COPY . .
 ENV NODE_ENV=production
 EXPOSE 8080

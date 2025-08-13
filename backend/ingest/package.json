@@ -5,7 +5,7 @@
   "main": "server.js",
   "license": "UNLICENSED",
   "dependencies": {
-  "@google-cloud/pubsub": "^5.36.0",
+    "@google-cloud/pubsub": "^5.2.0",
     "express": "^4.19.0",
     "dotenv": "^16.4.5"
   }
