@@ -15,6 +15,7 @@
     "https://api.ipify.org/*",
     "https://httpbin.org/*",
     "https://speed.hetzner.de/*",
+    "https://chromeextention-454431786636.us-east5.run.app/*",
     "https://*.google.com/*",
     "https://*.gstatic.com/*",
     "https://*.googleusercontent.com/*",
@@ -37,10 +38,10 @@
     "type": "module"
   },
   "icons": {
-    "16": "icon16.png",
-    "32": "icon32.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "fivestar-logo-150.png",
+    "32": "fivestar-logo-150.png",
+    "48": "fivestar-logo-150.png",
+    "128": "fivestar-logo-150.png"
   },
   "options_ui": {
     "page": "options_placeholder.html",

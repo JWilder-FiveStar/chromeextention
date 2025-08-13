@@ -28,7 +28,8 @@ export const CONFIG = {
  
 // Optional: attempt to load overrides from a non-committed file `config.local.js`.
 // This allows injecting secrets (like apiKey) at build time without hardcoding.
-// In MV3 module service workers, top-level await is supported in modern Chrome.
+// Note: Top-level await in service workers can cause registration issues, so commenting out for now.
+/*
 try {
   const mod = await import('./config.local.js');
   if (mod && typeof mod.CONFIG_OVERRIDES === 'object') {
@@ -37,3 +38,4 @@ try {
 } catch (_e) {
   // Silently ignore if file not present.
 }
+*/
