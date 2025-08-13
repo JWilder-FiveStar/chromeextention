@@ -71,6 +71,7 @@ Extension -> Cloud Run (POST /telemetry) -> Pub/Sub topic -> Processor (Cloud Fu
 1) GCS bucket (raw JSON)  2) BigQuery raw table -> Scheduled queries -> Aggregated tables / dashboards
 
 ### Minimal Ingest Service (Node + Express)
+Source now resides under `backend/ingest/` for clarity (processor under `backend/processor/`).
 ```js
 import express from 'express';
 import {PubSub} from '@google-cloud/pubsub';
@@ -232,6 +233,25 @@ Troubleshooting Tips:
 - 401 responses: API key mismatch.
 - 500 publish_failed: Check Pub/Sub topic exists and service account has `pubsub.publisher` role.
 - No processor inserts: Verify subscription created and push auth service account has correct IAM: `roles/run.invoker` on processor service and BigQuery/Storage access.
+
+### Cloud Build CI/CD (Optional)
+Use provided build configs:
+- `cloudbuild-ingest.yaml` builds/deploys `backend/` ingest service (excludes processor code by setting dir to backend).
+- `cloudbuild-processor.yaml` builds/deploys `backend/processor/` service.
+
+Set up two triggers:
+1. Ingest Trigger:
+  - Source: GitHub repo main branch.
+  - Include path filter: `backend/**`
+  - Exclude path filter: `backend/processor/**`
+  - Build config: `cloudbuild-ingest.yaml`.
+  - Secret Manager secret `telemetry-api-key` available (for API_KEY).
+2. Processor Trigger:
+  - Include path filter: `backend/processor/**`
+  - Build config: `cloudbuild-processor.yaml`.
+  - Secret Manager secret `telemetry-bucket` containing bucket name.
+
+If builds fail with `Dockerfile: no such file`, ensure the `dir:` in the build step points to the folder containing the intended Dockerfile.
 
 ## License
 Internal / Proprietary (adjust as needed).

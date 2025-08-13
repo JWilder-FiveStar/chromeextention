@@ -1,0 +1,29 @@
+# Cloud Build config for processor service
+# Trigger suggestion: path filter backend/processor/**
+substitutions:
+  _REGION: us-east5
+  _SERVICE: telemetry-processor
+steps:
+  - name: gcr.io/cloud-builders/docker
+    dir: backend/processor
+    args: ["build","-t","gcr.io/$PROJECT_ID/${_SERVICE}:$COMMIT_SHA","."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push","gcr.io/$PROJECT_ID/${_SERVICE}:$COMMIT_SHA"]
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud run deploy ${_SERVICE} \
+          --image gcr.io/$PROJECT_ID/${_SERVICE}:$COMMIT_SHA \
+          --region ${_REGION} \
+          --platform managed \
+          --allow-unauthenticated \
+          --set-env-vars BUCKET=$$BUCKET,DATASET=telemetry,RAW_TABLE=raw
+    secretEnv: [BUCKET]
+images:
+  - gcr.io/$PROJECT_ID/${_SERVICE}:$COMMIT_SHA
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/telemetry-bucket/versions/latest
+      env: BUCKET
