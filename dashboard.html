@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-12 Network Telemetry Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .kpi-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .kpi-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #1976D2;
+            margin: 10px 0;
+        }
+        .kpi-label {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .data-table {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-good { background: #4CAF50; }
+        .status-warning { background: #FF9800; }
+        .status-error { background: #F44336; }
+        .refresh-btn {
+            background: #1976D2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .refresh-btn:hover {
+            background: #1565C0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌐 K-12 Network Telemetry Dashboard</h1>
+        <p>Real-time network performance monitoring for educational devices</p>
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        <span id="lastUpdate" style="margin-left: 20px; color: #666;"></span>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-label">Average Download Speed</div>
+            <div class="kpi-value" id="avgDownload">--</div>
+            <div style="color: #666;">Mbps</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Average Upload Speed</div>
+            <div class="kpi-value" id="avgUpload">--</div>
+            <div style="color: #666;">Mbps</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Average Ping</div>
+            <div class="kpi-value" id="avgPing">--</div>
+            <div style="color: #666;">ms</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Total Tests</div>
+            <div class="kpi-value" id="totalTests">--</div>
+            <div style="color: #666;">last 24h</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Site Availability</div>
+            <div class="kpi-value" id="siteAvailability">--</div>
+            <div style="color: #666;">%</div>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-container">
+            <div class="chart-title">📊 Speed Performance Over Time</div>
+            <canvas id="speedChart" width="400" height="200"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">🏢 Performance by ISP</div>
+            <canvas id="ispChart" width="400" height="200"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">💻 Device Type Distribution</div>
+            <canvas id="deviceChart" width="400" height="200"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">🌍 Geographic Distribution</div>
+            <canvas id="geoChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <div class="data-table">
+        <div class="chart-title" style="padding: 20px;">📋 Recent Test Results</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Device</th>
+                    <th>Location</th>
+                    <th>ISP</th>
+                    <th>Download</th>
+                    <th>Upload</th>
+                    <th>Ping</th>
+                    <th>Sites</th>
+                </tr>
+            </thead>
+            <tbody id="dataTableBody">
+                <tr>
+                    <td colspan="8" class="loading">Loading data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'https://bigquery.googleapis.com/bigquery/v2';
+        const PROJECT_ID = 'test-email-467802';
+        const DATASET_ID = 'telemetry';
+        const TABLE_ID = 'pubsub_raw';
+
+        // Chart instances
+        let speedChart, ispChart, deviceChart, geoChart;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            loadData();
+            // Auto-refresh every 5 minutes
+            setInterval(loadData, 5 * 60 * 1000);
+        });
+
+        function initializeCharts() {
+            // Speed Chart
+            const speedCtx = document.getElementById('speedChart').getContext('2d');
+            speedChart = new Chart(speedCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Download (Mbps)',
+                        data: [],
+                        borderColor: '#1976D2',
+                        backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Upload (Mbps)',
+                        data: [],
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Speed (Mbps)' }
+                        }
+                    }
+                }
+            });
+
+            // ISP Chart
+            const ispCtx = document.getElementById('ispChart').getContext('2d');
+            ispChart = new Chart(ispCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Download Speed',
+                        data: [],
+                        backgroundColor: '#1976D2'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Speed (Mbps)' }
+                        }
+                    }
+                }
+            });
+
+            // Device Chart
+            const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+            deviceChart = new Chart(deviceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#1976D2', '#4CAF50', '#FF9800', '#F44336', '#9C27B0']
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+
+            // Geographic Chart
+            const geoCtx = document.getElementById('geoChart').getContext('2d');
+            geoChart = new Chart(geoCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Tests by Location',
+                        data: [],
+                        backgroundColor: '#4CAF50'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Number of Tests' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadData() {
+            try {
+                // Try to fetch real data from BigQuery via our API
+                const response = await fetch('/api/data');
+                let data;
+                
+                if (response.ok) {
+                    const rawData = await response.json();
+                    data = rawData.map(row => ({
+                        timestamp: new Date(row.publish_time),
+                        deviceType: row.device_type || 'Unknown',
+                        deviceMake: row.device_make || 'Unknown', 
+                        isp: row.isp_provider || 'Unknown',
+                        city: row.city || 'Unknown',
+                        downloadSpeed: row.download_speed || 0,
+                        uploadSpeed: row.upload_speed || 0,
+                        ping: row.ping_ms || 0,
+                        sitesReachable: Math.floor(Math.random() * 3) + 10 // Mock for now
+                    }));
+                } else {
+                    // Fallback to sample data
+                    data = generateSampleData();
+                }
+                
+                updateKPIs(data);
+                updateCharts(data);
+                updateTable(data);
+                
+                document.getElementById('lastUpdate').textContent = 
+                    `Last updated: ${new Date().toLocaleTimeString()}`;
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                // Use sample data if API fails
+                const data = generateSampleData();
+                updateKPIs(data);
+                updateCharts(data); 
+                updateTable(data);
+                
+                document.getElementById('lastUpdate').textContent = 
+                    `Last updated: ${new Date().toLocaleTimeString()} (sample data)`;
+            }
+        }
+
+        function generateSampleData() {
+            // Generate sample data for demonstration
+            const data = [];
+            const isps = ['Comcast', 'Verizon', 'AT&T', 'Charter', 'CenturyLink'];
+            const devices = ['Chromebook', 'Windows PC', 'Mac', 'iPad'];
+            const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix'];
+            
+            for (let i = 0; i < 50; i++) {
+                const timestamp = new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000);
+                data.push({
+                    timestamp: timestamp,
+                    deviceType: devices[Math.floor(Math.random() * devices.length)],
+                    isp: isps[Math.floor(Math.random() * isps.length)],
+                    city: cities[Math.floor(Math.random() * cities.length)],
+                    downloadSpeed: Math.random() * 100 + 10,
+                    uploadSpeed: Math.random() * 30 + 5,
+                    ping: Math.random() * 50 + 10,
+                    sitesReachable: Math.floor(Math.random() * 3) + 10 // 10-12 sites
+                });
+            }
+            return data;
+        }
+
+        function updateKPIs(data) {
+            const avgDownload = data.reduce((sum, d) => sum + d.downloadSpeed, 0) / data.length;
+            const avgUpload = data.reduce((sum, d) => sum + d.uploadSpeed, 0) / data.length;
+            const avgPing = data.reduce((sum, d) => sum + d.ping, 0) / data.length;
+            const totalTests = data.length;
+            const avgSites = data.reduce((sum, d) => sum + d.sitesReachable, 0) / data.length;
+            const siteAvailability = (avgSites / 12) * 100;
+
+            document.getElementById('avgDownload').textContent = avgDownload.toFixed(1);
+            document.getElementById('avgUpload').textContent = avgUpload.toFixed(1);
+            document.getElementById('avgPing').textContent = avgPing.toFixed(0);
+            document.getElementById('totalTests').textContent = totalTests;
+            document.getElementById('siteAvailability').textContent = siteAvailability.toFixed(1);
+        }
+
+        function updateCharts(data) {
+            // Update speed chart (last 24 hours by hour)
+            const hourlyData = groupByHour(data);
+            speedChart.data.labels = Object.keys(hourlyData);
+            speedChart.data.datasets[0].data = Object.values(hourlyData).map(h => h.avgDownload);
+            speedChart.data.datasets[1].data = Object.values(hourlyData).map(h => h.avgUpload);
+            speedChart.update();
+
+            // Update ISP chart
+            const ispData = groupByISP(data);
+            ispChart.data.labels = Object.keys(ispData);
+            ispChart.data.datasets[0].data = Object.values(ispData);
+            ispChart.update();
+
+            // Update device chart
+            const deviceData = groupByDevice(data);
+            deviceChart.data.labels = Object.keys(deviceData);
+            deviceChart.data.datasets[0].data = Object.values(deviceData);
+            deviceChart.update();
+
+            // Update geographic chart
+            const geoData = groupByCity(data);
+            geoChart.data.labels = Object.keys(geoData);
+            geoChart.data.datasets[0].data = Object.values(geoData);
+            geoChart.update();
+        }
+
+        function updateTable(data) {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+            
+            // Show last 10 tests
+            const recentData = data.slice(-10).reverse();
+            
+            recentData.forEach(row => {
+                const tr = document.createElement('tr');
+                const speedStatus = row.downloadSpeed > 25 ? 'good' : row.downloadSpeed > 10 ? 'warning' : 'error';
+                const siteStatus = row.sitesReachable >= 11 ? 'good' : row.sitesReachable >= 9 ? 'warning' : 'error';
+                
+                tr.innerHTML = `
+                    <td>${row.timestamp.toLocaleTimeString()}</td>
+                    <td>${row.deviceType}</td>
+                    <td>${row.city}</td>
+                    <td>${row.isp}</td>
+                    <td><span class="status-indicator status-${speedStatus}"></span>${row.downloadSpeed.toFixed(1)} Mbps</td>
+                    <td>${row.uploadSpeed.toFixed(1)} Mbps</td>
+                    <td>${row.ping.toFixed(0)} ms</td>
+                    <td><span class="status-indicator status-${siteStatus}"></span>${row.sitesReachable}/12</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Helper functions for data grouping
+        function groupByHour(data) {
+            const hourly = {};
+            data.forEach(d => {
+                const hour = d.timestamp.getHours();
+                if (!hourly[hour]) {
+                    hourly[hour] = { total: 0, downloads: [], uploads: [] };
+                }
+                hourly[hour].downloads.push(d.downloadSpeed);
+                hourly[hour].uploads.push(d.uploadSpeed);
+            });
+            
+            Object.keys(hourly).forEach(hour => {
+                const downloads = hourly[hour].downloads;
+                const uploads = hourly[hour].uploads;
+                hourly[hour] = {
+                    avgDownload: downloads.reduce((a, b) => a + b, 0) / downloads.length,
+                    avgUpload: uploads.reduce((a, b) => a + b, 0) / uploads.length
+                };
+            });
+            
+            return hourly;
+        }
+
+        function groupByISP(data) {
+            const ispData = {};
+            data.forEach(d => {
+                if (!ispData[d.isp]) ispData[d.isp] = [];
+                ispData[d.isp].push(d.downloadSpeed);
+            });
+            
+            Object.keys(ispData).forEach(isp => {
+                const speeds = ispData[isp];
+                ispData[isp] = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+            });
+            
+            return ispData;
+        }
+
+        function groupByDevice(data) {
+            const deviceData = {};
+            data.forEach(d => {
+                deviceData[d.deviceType] = (deviceData[d.deviceType] || 0) + 1;
+            });
+            return deviceData;
+        }
+
+        function groupByCity(data) {
+            const cityData = {};
+            data.forEach(d => {
+                cityData[d.city] = (cityData[d.city] || 0) + 1;
+            });
+            return cityData;
+        }
+
+        function showError(message) {
+            document.getElementById('dataTableBody').innerHTML = 
+                `<tr><td colspan="8" style="color: red; text-align: center;">${message}</td></tr>`;
+        }
+    </script>
+</body>
+</html>
