@@ -1,0 +1,39 @@
+// Basic configuration for telemetry extension
+export const CONFIG = {
+  reportingEndpoint: 'https://chromeextention-454431786636.us-east5.run.app/telemetry', // Cloud Run ingest endpoint
+  apiKey: 'P/aOCbkc0WPzrldkfqkoeyTKz0nabNFtQB6+Eb20sG0=', // Backend ingest API key (X-Api-Key header)
+  autoReportIntervalMinutes: 60, // periodic reporting interval
+  reachabilityTimeoutMs: 4000,
+  speedTest: {
+    downloadUrl: 'https://speed.hetzner.de/5MB.bin', // modest size for quick test
+    uploadEndpoint: 'https://httpbin.org/post', // echoes data size
+    uploadSizeBytes: 256 * 1024 // 256KB synthetic blob
+  },
+  reachabilityUrls: [
+    'https://classroom.google.com',
+    'https://drive.google.com',
+    'https://meet.google.com',
+    'https://www.youtube.com',
+    'https://teams.microsoft.com',
+    'https://www.office.com',
+    'https://zoom.us',
+    'https://clever.com',
+    'https://www.khanacademy.org',
+    'https://quizlet.com',
+    'https://www.pearson.com',
+    'https://www.hmhco.com'
+  ],
+  // TODO: future: move to managed storage or remote config
+};
+ 
+// Optional: attempt to load overrides from a non-committed file `config.local.js`.
+// This allows injecting secrets (like apiKey) at build time without hardcoding.
+// In MV3 module service workers, top-level await is supported in modern Chrome.
+try {
+  const mod = await import('./config.local.js');
+  if (mod && typeof mod.CONFIG_OVERRIDES === 'object') {
+    Object.assign(CONFIG, mod.CONFIG_OVERRIDES);
+  }
+} catch (_e) {
+  // Silently ignore if file not present.
+}

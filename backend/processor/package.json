@@ -1,0 +1,12 @@
+{
+  "name": "telemetry-processor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.12.0",
+    "@google-cloud/storage": "^7.10.0",
+    "express": "^4.19.0"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "K12 Network Telemetry",
+  "version": "0.1.0",
+  "description": "Managed K-12 device network telemetry: speed test, site reachability, and periodic reporting.",
+  "action": {
+    "default_title": "K12 Telemetry",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "alarms",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.ipify.org/*",
+    "https://httpbin.org/*",
+    "https://speed.hetzner.de/*",
+    "https://*.google.com/*",
+    "https://*.gstatic.com/*",
+    "https://*.googleusercontent.com/*",
+    "https://*.youtube.com/*",
+    "https://*.microsoft.com/*",
+    "https://*.office.com/*",
+    "https://*.office365.com/*",
+    "https://*.zoom.us/*",
+    "https://*.clever.com/*",
+    "https://*.khanacademy.org/*",
+    "https://*.quizlet.com/*",
+    "https://*.pearson.com/*",
+    "https://*.hmhco.com/*",
+    "https://*.cloudfront.net/*",
+    "https://*.akamaihd.net/*",
+    "https://example.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "options_ui": {
+    "page": "options_placeholder.html",
+    "open_in_tab": false
+  }
+}
